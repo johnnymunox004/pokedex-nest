@@ -8,18 +8,29 @@ import { UpdatePokemonDto } from './dto/update-pokemon.dto';
 import { isValidObjectId, Model } from 'mongoose';
 import { Pokemon } from './entities/pokemon.entity';
 import { InjectModel } from '@nestjs/mongoose';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PokemonService {
+
+  private defaultlimit: number;
+
   constructor(
+    // me da acceso a los parametros que espera el schema para mongo db
     @InjectModel(Pokemon.name)
     private readonly pokemonModel: Model<Pokemon>,
-  ) {}
+
+    private readonly configservice: ConfigService,
+  ) {
+    this.defaultlimit = configservice.get<number>('defaultlimit')!;
+  }
   //////////////////////////////////////////////////////////////////////////////////////
   async create(createPokemonDto: CreatePokemonDto) {
     createPokemonDto.name = createPokemonDto.name.toLocaleLowerCase();
 
     try {
+      //
       const pokemon = await this.pokemonModel.create(createPokemonDto);
       return pokemon;
     } catch (error) {
@@ -27,8 +38,16 @@ export class PokemonService {
     }
   }
   //////////////////////////////////////////////////////////////////////////////////////////////
-  findAll() {
-    return `This action returns all pokemon`;
+  findAll(PaginationDto: PaginationDto) {
+    const { limit = this.defaultlimit, offset = 0 } = PaginationDto;
+
+    return this.pokemonModel.find()
+      .limit(limit)
+      .skip(offset)
+      .sort({
+        no: 1,
+      }) // para mostrarlos de manera acendente
+      .select('-__v'); // para ocultar el contenido de version
   }
   /////////////////////////////////////////////////////////////////////////////////////////////
   async findOne(term: string): Promise<Pokemon> {
@@ -75,20 +94,18 @@ export class PokemonService {
     // await pokemon.deleteOne();
     // return { id };
 
-
     // const result = await this.pokemonModel.findByIdAndDelete(id);
 
+    //// elimina por id y consulta si esta en la bd con una sola solicitud
+    const { deletedCount } = await this.pokemonModel.deleteOne({ _id: id });
 
-//// elimina por id y consulta si esta en la bd con una sola solicitud
-    const { deletedCount} = await this.pokemonModel.deleteOne({ _id: id });
-
-    if (deletedCount === 0) 
-      throw new BadRequestException(`No se encontró el Pokémon con el id: ${id}`);
-      return;
-    
-    
+    if (deletedCount === 0)
+      throw new BadRequestException(
+        `No se encontró el Pokémon con el id: ${id}`,
+      );
+    return;
   }
-/////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////
   private handleExceptions(error: any) {
     if (error.code === 11000) {
       throw new BadRequestException(
