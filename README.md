@@ -11,9 +11,9 @@
 ```
 yarn intall
 ```
-3. tener nest cli
+3. tener nest cli instalado
 ```
-yarn global add @nestjs/
+yarn global add @nestjs/cli
 ```
 
 4. levantar la base de datos
